@@ -1,0 +1,12 @@
+alembic
+fastapi
+uvicorn
+sqlalchemy
+databases
+pydantic
+PyJWT
+bcrypt
+passlib
+asyncpg
+pandas
+python-dotenv
