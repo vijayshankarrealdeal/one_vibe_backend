@@ -10,3 +10,5 @@ passlib
 asyncpg
 pandas
 python-dotenv
+fastapi-mail
+redis

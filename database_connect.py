@@ -1,6 +1,7 @@
 import databases as dbs
 import sqlalchemy as sa
 import os
+import redis
 from dotenv import load_dotenv  
 load_dotenv()
 
@@ -23,3 +24,6 @@ print("Connection URL:", DATABASE_URL)
 
 dbs = dbs.Database(DATABASE_URL)
 metadata = sa.MetaData()
+
+## Redis
+redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)

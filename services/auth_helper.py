@@ -1,23 +1,28 @@
 from typing import Optional
 import jwt
 import datetime
-from fastapi import Request
+from fastapi import BackgroundTasks, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import HTTPException
-from database_connect import dbs
+from database_connect import dbs, redis_client
 from db.db_user_table import db_user_table
+from models.email_model import EmailSchema, OTPVerifySchema
 from models.user_model import UserLogin, UserRegister
 from op_logging import logging
 from passlib.context import CryptContext
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+
+from utils import generate_otp, is_rate_limiter, track_fail_attemps
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 class Auth:
     @staticmethod
     def encode_token(user_data):
         payload = {
             "exp": datetime.datetime.now() + datetime.timedelta(days=12),
-            "sub": str(user_data['id']),
+            "sub": str(user_data["id"]),
         }
         try:
             token = jwt.encode(payload, "XYZ", algorithm="HS256")
@@ -47,20 +52,92 @@ class Auth:
 
     async def login(self, user_data: UserLogin):
 
-        query = db_user_table.select().where(db_user_table.c.email == user_data.email)
+        query = db_user_table.select().where(
+            db_user_table.c.username == user_data.username
+        )
         user_id = await dbs.execute(query)
         if not user_id:
             raise HTTPException(status_code=400, detail="Invalid email or password")
         user_db_data = await dbs.fetch_one(
             db_user_table.select().where(db_user_table.c.id == user_id)
         )
-        if not pwd_context.verify(user_data.password,user_db_data.password):
+        if not pwd_context.verify(user_data.password, user_db_data.password):
             raise HTTPException(status_code=400, detail="Invalid email or password")
         return self.encode_token(user_db_data)
+    
+    @staticmethod
+    async def send_verification_email_otp(
+        background_tasks: BackgroundTasks, email_data: EmailSchema
+    ):
+        if is_rate_limiter(email_data.email):
+            raise HTTPException(status_code=429, detail="Too many OTP requests. Try again later.")
+
+        MAIL_CONFIG = {
+            "MAIL_USERNAME": "vijaygaya056@gmail.com",
+            "MAIL_PASSWORD": "rroqgefuuhawxvbk",
+            "MAIL_FROM": "vijaygaya056@gmail.com",
+            "MAIL_PORT": 587,
+            "MAIL_SERVER": "smtp.gmail.com",
+            "MAIL_STARTTLS": True,  # Updated field
+            "MAIL_SSL_TLS": False,  # Updated field
+        }
+
+        conf = ConnectionConfig(
+            MAIL_USERNAME=MAIL_CONFIG["MAIL_USERNAME"],
+            MAIL_PASSWORD=MAIL_CONFIG["MAIL_PASSWORD"],
+            MAIL_FROM=MAIL_CONFIG["MAIL_FROM"],
+            MAIL_PORT=MAIL_CONFIG["MAIL_PORT"],
+            MAIL_SERVER=MAIL_CONFIG["MAIL_SERVER"],
+            MAIL_STARTTLS=MAIL_CONFIG["MAIL_STARTTLS"],  # Updated
+            MAIL_SSL_TLS=MAIL_CONFIG["MAIL_SSL_TLS"],  # Updated
+            USE_CREDENTIALS=True,
+        )
+        otp = generate_otp()
+        otp_key = f"otp:{email_data.email}"
+        redis_client.setex(otp_key, 300, otp)
+        message = MessageSchema(
+            subject="Your OTP Code",
+            recipients=[email_data.email],
+            body=f"""
+        <h3>Your OTP Code</h3>
+        <p>Your One-Time Password (OTP) is: <strong>{otp}</strong></p>
+        <p>This OTP will expire in 5 minutes.</p>
+        """,
+            subtype="html",
+        )
+        fm = FastMail(conf)
+        background_tasks.add_task(fm.send_message, message)
+    
+    @staticmethod
+    async def verify_otp(otp_data: OTPVerifySchema):
+        otp_key = f"otp:{otp_data.email}"
+        stored_otp = redis_client.get(otp_key)
+
+        # 🛑 **Check if OTP exists**
+        if stored_otp is None:
+            raise HTTPException(status_code=400, detail="OTP expired or not found")
+
+        # 🛑 **Check Brute Force Protection**
+        if redis_client.get(f"failed_attempts:{otp_data.email}") and int(redis_client.get(f"failed_attempts:{otp_data.email}")) >= 5:
+            raise HTTPException(status_code=403, detail="Too many incorrect attempts. Try again later.")
+
+        # 🔐 **Verify OTP**
+        if otp_data.otp != stored_otp:
+            if track_fail_attemps(otp_data.email):  # Check if user should be blocked
+                raise HTTPException(status_code=403, detail="Too many incorrect attempts. Try again later.")
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+
+        # ✅ **Successful Verification: Clear OTP & Attempts**
+        redis_client.delete(otp_key)
+        redis_client.delete(f"failed_attempts:{otp_data.email}")
+
+        return {"message": True}
 
 
 class CustomHTTPBearer(HTTPBearer):
-    async def __call__(self, request: Request) -> Optional[HTTPAuthorizationCredentials]:
+    async def __call__(
+        self, request: Request
+    ) -> Optional[HTTPAuthorizationCredentials]:
         res = await super().__call__(request)
         try:
             payload = jwt.decode(res.credentials, "XYZ", algorithms=["HS256"])
