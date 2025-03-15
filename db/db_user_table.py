@@ -6,7 +6,7 @@ db_user_table = sa.Table(
     "users",
     metadata,
     sa.Column("id", sa.Integer, primary_key=True),
-    sa.Column("email", sa.String(255), nullable=False, unique=True),
+    sa.Column("email", sa.String(255), nullable=True, unique=False),
     sa.Column("name", sa.String(255), nullable=False),
     sa.Column("username", sa.String(255), nullable=False, unique=True),
     sa.Column("password", sa.String(255), nullable=False),

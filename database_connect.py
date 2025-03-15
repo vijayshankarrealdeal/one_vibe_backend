@@ -2,8 +2,7 @@ import databases as dbs
 import sqlalchemy as sa
 import os
 import redis
-from dotenv import load_dotenv  
-load_dotenv()
+
 
 POSTGRES_USER = os.environ.get("username", "postgres")
 POSTGRES_PASSWORD = os.environ.get("password", "123")

@@ -20,7 +20,6 @@ class UserOut(UserBase):
 
 class UserQueryOut(UserBase):
     id: int
-    username: str
     email: Optional[str]
     name: Optional[str]
     profile_picture: Optional[str]
@@ -28,3 +27,9 @@ class UserQueryOut(UserBase):
     user_type: Optional[str]
     user_rank: Optional[str]
     created_at: Optional[datetime.datetime]
+
+class UserUpdate(BaseModel):
+    id: int
+    name: Optional[str] = None
+    profile_picture: Optional[str] = None
+    bio: Optional[str] = None

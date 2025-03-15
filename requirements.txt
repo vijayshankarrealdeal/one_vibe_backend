@@ -12,3 +12,6 @@ pandas
 python-dotenv
 fastapi-mail
 redis
+python-multipart 
+pillow
+dropbox
