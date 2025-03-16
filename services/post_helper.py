@@ -105,3 +105,8 @@ class PostHelper:
         post_id = await dbs.execute(query)
         post = await PostHelper.get_posts(post_id)
         return post
+    
+    @staticmethod
+    async def delete_post(post_id: int):
+        query = db_posts_table.delete().where(db_posts_table.c.post_id_table == post_id)
+        return await dbs.execute(query)

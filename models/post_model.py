@@ -22,5 +22,9 @@ class PostOut(BaseModel):
     likes: Optional[List[LikesOut]] = []
     comments: Optional[List[CommentOut]] = []
 
+class PostDelete(BaseModel):
+    post_id: int
+    user_id: int
+
 
 

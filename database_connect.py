@@ -9,20 +9,23 @@ POSTGRES_PASSWORD = os.environ.get("password", "123")
 POSTGRES_DB = os.environ.get("database", "ov")
 POSTGRES_HOST = os.environ.get("hostname", "localhost")
 POSTGRES_PORT = os.environ.get("port", "5432")
+REDIS_URL = os.environ.get("redis_url", "5432")
 
-PRODUCTION_ENV = True 
+PRODUCTION_ENV = False 
 if PRODUCTION_ENV:
     DATABASE_URL = (
         f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
         f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
     )
 else:
-    DATABASE_URL = os.environ.get("local_database_url",None)
-
+    DATABASE_URL = "postgresql://onevibeuser:S7AvEcHFdcTtOV3zcUhTrMCYagD0B8RZ@dpg-cvbchp5umphs73anapug-a.singapore-postgres.render.com/ovdb"
 print("Connection URL:", DATABASE_URL)
 
-dbs = dbs.Database(DATABASE_URL)
-metadata = sa.MetaData()
+try:
+    dbs = dbs.Database(DATABASE_URL)
+    metadata = sa.MetaData()
+except Exception as e:
+    print(f"Error connecting to database: {e}")
 
 ## Redis
-redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+redis_client = redis.Redis(REDIS_URL,decode_responses=True)

@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from services.post_helper import PostHelper
-from models.post_model import PostIn, PostOut
+from models.post_model import PostIn, PostOut, PostDelete
 from services.auth_helper import oauth2_scheme, is_verified
 
 post_route = APIRouter()
@@ -30,4 +30,17 @@ async def get_post(
 
 ):
     post = await PostHelper.get_posts(post_id)
+    return post
+
+@post_route.delete(
+    "/delete_post",
+    dependencies=[Depends(oauth2_scheme)],
+)
+async def delete_post(request: Request, post: PostDelete):
+    user_id = request.state.user.id
+    if not is_verified(request.state.user):
+        raise HTTPException(status_code=401, detail="Unauthorized access")
+    if post.user_id != user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized access")
+    post = await PostHelper.delete_post(post.post_id)
     return post
