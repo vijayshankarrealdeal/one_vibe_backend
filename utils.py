@@ -1,9 +1,15 @@
 import uuid
+import re
 import random
 from database_connect import redis_client
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+def sanitize_filename(filename):
+    """Removes or replaces unsafe characters from filenames."""
+    return re.sub(r'[|<>:"/\\?*]', '_', filename) 
+
 
 def generate_otp():
     return random.randint(100000,999999)
