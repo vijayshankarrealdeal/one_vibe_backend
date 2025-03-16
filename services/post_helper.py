@@ -13,7 +13,7 @@ from sqlalchemy.orm import aliased
 class PostHelper:
 
     @staticmethod
-    async def get_posts(post_id: int = None, limit: int = 10):
+    async def get_posts(post_id: int = None, user_id: int = None, limit: int = 10, offset: int = 0):
         posts_alias = aliased(db_posts_table, name="posts")
         user_alias = aliased(db_user_table, name="user")
         likes_alias = aliased(db_likes_table, name="likes")
@@ -28,11 +28,13 @@ class PostHelper:
         )
 
         # If post_id is specified, filter for that post
-        if post_id:
+        if user_id:
+            query = query.where(posts_alias.c.user_id == user_id)
+        elif post_id:
             query = query.where(posts_alias.c.post_id_table == post_id)
         else:
             query = query.limit(limit)  # Apply limit only when fetching multiple posts
-
+        query = query.offset(offset)  # Apply offset only when fetching multiple posts
         try:
             posts = await dbs.fetch_all(query)  # Fetch all rows related to this post or multiple posts
             if not posts:
