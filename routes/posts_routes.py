@@ -20,7 +20,7 @@ async def create_post(request: Request, post_data: PostIn):
         raise HTTPException(status_code=401, detail="Unauthorized access")
     post = await PostHelper.create_post(post_data)
     return post
-
+ 
 
 @post_route.get(
     "/get_post", response_model=List[PostOut], dependencies=[Depends(oauth2_scheme)]
@@ -41,7 +41,5 @@ async def delete_post(request: Request, post_id: int):
     user_id = request.state.user.id
     if not is_verified(request.state.user):
         raise HTTPException(status_code=401, detail="Unauthorized access")
-    if post.user_id != user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized access")
-    post = await PostHelper.delete_post(post_id)
+    post = await PostHelper.delete_post(post_id, user_id)
     return post

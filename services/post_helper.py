@@ -109,6 +109,12 @@ class PostHelper:
         return post
     
     @staticmethod
-    async def delete_post(post_id: int):
+    async def delete_post(post_id: int, user_id: int):
+        query_post = db_posts_table.select().where(db_posts_table.c.post_id_table == post_id)
+        post = await dbs.fetch_one(query_post)
+        if not post:
+            raise HTTPException(status_code=404, detail="Post not found")
+        if post['user_id'] != user_id:
+            raise HTTPException(status_code=401, detail="Unauthorized access")
         query = db_posts_table.delete().where(db_posts_table.c.post_id_table == post_id)
         return await dbs.execute(query)
