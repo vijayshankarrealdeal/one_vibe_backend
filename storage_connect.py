@@ -7,7 +7,6 @@ load_dotenv()
 
 dropbox_access_token = os.environ.get("DROPBOX_ACCESS_TOKEN", None)
 dbx = dropbox.Dropbox(dropbox_access_token)
-print(dbx.users_get_current_account())
 def upload_to_dropbox(compress_image_io, image_filename):
     image_filename = f"{generate_uuid()}|{image_filename}" 
     dropbox_path = f"/app_file/{image_filename}"
