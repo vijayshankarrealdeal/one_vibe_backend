@@ -14,4 +14,4 @@ fastapi-mail
 redis
 python-multipart 
 pillow
-dropbox
+supabase

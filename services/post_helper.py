@@ -12,42 +12,42 @@ from sqlalchemy.orm import aliased
 
 class PostHelper:
 
-
     @staticmethod
-    async def get_posts(post_id: int = None):
+    async def get_posts(post_id: int = None, limit: int = 10):
         posts_alias = aliased(db_posts_table, name="posts")
         user_alias = aliased(db_user_table, name="user")
         likes_alias = aliased(db_likes_table, name="likes")
         comment_alias = aliased(db_comments_table, name="comments")
-        if post_id:
-            query = (
-                select(posts_alias, user_alias, likes_alias, comment_alias)
-                .join(user_alias, posts_alias.c.user_id == user_alias.c.id)
-                .outerjoin(comment_alias, posts_alias.c.post_id_table == comment_alias.c.post_comment_id)
-                .outerjoin(likes_alias, posts_alias.c.post_id_table == likes_alias.c.post_like_id)
-                .where(posts_alias.c.post_id_table == post_id)
-            )
-        else:
-            query = (
-                select(posts_alias, user_alias, likes_alias, comment_alias)
-                .join(user_alias, posts_alias.c.user_id == user_alias.c.id)
-                .outerjoin(comment_alias, posts_alias.c.post_id_table == comment_alias.c.post_comment_id)
-                .outerjoin(likes_alias, posts_alias.c.post_id_table == likes_alias.c.post_like_id)
-            )
-        try:
-            posts = await dbs.fetch_all(query)  # Fetch all rows related to this post
-            if not posts:
-                raise HTTPException(status_code=404, detail="Post not found")
 
-            organized_post = None
-            likes_list = []
-            comments_list = []
+        # Base query
+        query = (
+            select(posts_alias, user_alias, likes_alias, comment_alias)
+            .join(user_alias, posts_alias.c.user_id == user_alias.c.id)
+            .outerjoin(comment_alias, posts_alias.c.post_id_table == comment_alias.c.post_comment_id)
+            .outerjoin(likes_alias, posts_alias.c.post_id_table == likes_alias.c.post_like_id)
+        )
+
+        # If post_id is specified, filter for that post
+        if post_id:
+            query = query.where(posts_alias.c.post_id_table == post_id)
+        else:
+            query = query.limit(limit)  # Apply limit only when fetching multiple posts
+
+        try:
+            posts = await dbs.fetch_all(query)  # Fetch all rows related to this post or multiple posts
+            if not posts:
+                raise HTTPException(status_code=404, detail="Post(s) not found")
+
+            organized_posts = []
+            post_map = {}  # Dictionary to track posts by ID
 
             for post in posts:
                 post = dict(post)  # Convert record to dictionary
 
-                # Initialize post structure only once
-                if not organized_post:
+                post_id_key = post["post_id_table"]
+
+                # If post not in map, initialize it
+                if post_id_key not in post_map:
                     post_copy = post.copy()
                     organized_post = {
                         k: post_copy.pop(k)
@@ -66,6 +66,8 @@ class PostHelper:
                     organized_post["likes"] = []  # Initialize empty likes list
                     organized_post["comments"] = []  # Initialize empty comments list
 
+                    post_map[post_id_key] = organized_post
+
                 # Extract likes if present
                 if post.get("likes_id_table"):
                     like_data = {
@@ -73,8 +75,8 @@ class PostHelper:
                         "user_id": post["user_like_id"],
                         "created_at": post["likes_created_at"]
                     }
-                    if like_data not in likes_list:
-                        likes_list.append(like_data)
+                    if like_data not in post_map[post_id_key]["likes"]:
+                        post_map[post_id_key]["likes"].append(like_data)
 
                 # Extract comments if present
                 if post.get("comment_id_table"):
@@ -85,19 +87,16 @@ class PostHelper:
                         "created_at": post["comment_created_at"],
                         "updated_at": post["comment_updated_at"]
                     }
-                    if comment_data not in comments_list:
-                        comments_list.append(comment_data)
+                    if comment_data not in post_map[post_id_key]["comments"]:
+                        post_map[post_id_key]["comments"].append(comment_data)
 
-            # Assign extracted likes and comments to the post
-            if organized_post:
-                organized_post["likes"] = likes_list
-                organized_post["comments"] = comments_list
+            organized_posts = list(post_map.values())  # Convert dictionary values to a list
 
-            return organized_post
+            return organized_posts if not post_id else organized_posts[0]
 
         except Exception as e:
-            print(f"Error fetching post {post_id}: {e}")
-            raise HTTPException(status_code=500, detail="Internal Server Error")
+            raise HTTPException(status_code=500, detail=str(e))
+
 
 
     @staticmethod

@@ -1,19 +1,36 @@
-import dropbox
-import dropbox
 import os
 from utils import generate_uuid
+from supabase import create_client, Client
 from dotenv import load_dotenv
 load_dotenv()
 
-dropbox_access_token = os.environ.get("DROPBOX_ACCESS_TOKEN", None)
-dbx = dropbox.Dropbox(dropbox_access_token)
-def upload_to_dropbox(compress_image_io, image_filename):
-    image_filename = f"{generate_uuid()}|{image_filename}" 
-    dropbox_path = f"/app_file/{image_filename}"
-    dbx.files_upload(compress_image_io.getvalue(), dropbox_path, mode=dropbox.files.WriteMode("overwrite"))
+supabase = create_client(
+    os.getenv("SUPABASE_URL"),
+    os.getenv("SUPABASE_KEY")
+)
 
-    # Create a shared link
-    shared_link_metadata = dbx.sharing_create_shared_link_with_settings(dropbox_path)
-    print(shared_link_metadata)
-    direct_download_url = shared_link_metadata.url.replace("=0", "=1")
-    return direct_download_url
+def upload_to_supabase(compressed_io, image_filename, bucket_name="app_file"):
+    """Upload compressed image to Supabase Storage and return the public URL."""
+    try:
+        # Generate a unique filename
+        image_filename = f"{generate_uuid()}|{image_filename}"  
+
+        # Upload to Supabase Storage
+        response = supabase.storage.from_(bucket_name).upload(
+            path=image_filename,
+            file=compressed_io.getvalue(),
+            file_options={"content-type": "image/jpeg"}
+        )
+
+        # Check for errors
+        if response.get("error"):
+            print(f"Upload error: {response['error']}")
+            return None
+
+        # Get public URL
+        public_url = supabase.storage.from_(bucket_name).get_public_url(image_filename)
+        return public_url
+
+    except Exception as e:
+        print(f"Error uploading to Supabase: {e}")
+        return None

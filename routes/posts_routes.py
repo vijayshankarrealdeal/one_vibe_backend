@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from services.post_helper import PostHelper
 from models.post_model import PostIn, PostOut
@@ -22,7 +23,7 @@ async def create_post(request: Request, post_data: PostIn):
 
 
 @post_route.get(
-    "/get_post", response_model=PostOut, dependencies=[Depends(oauth2_scheme)]
+    "/get_post", response_model=List[PostOut], dependencies=[Depends(oauth2_scheme)]
 )
 async def get_post(
     post_id: int = None,
