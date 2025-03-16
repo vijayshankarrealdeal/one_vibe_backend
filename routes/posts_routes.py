@@ -27,9 +27,10 @@ async def create_post(request: Request, post_data: PostIn):
 )
 async def get_post(
     post_id: int = None,
+    user_id: int = None,
 
 ):
-    post = await PostHelper.get_posts(post_id)
+    post = await PostHelper.get_posts(post_id, user_id)
     return post
 
 @post_route.delete(
