@@ -4,6 +4,7 @@ from db.db_post_table import db_posts_table
 from db.db_comment_table import db_comments_table
 from db.db_likes_table import db_likes_table
 from db.db_user_table import db_user_table
+from models.comment_model import CommentIn
 from models.post_model import PostIn, PostOut
 from models.user_model import UserQueryOut
 from database_connect import dbs
@@ -118,3 +119,61 @@ class PostHelper:
             raise HTTPException(status_code=401, detail="Unauthorized access")
         query = db_posts_table.delete().where(db_posts_table.c.post_id_table == post_id)
         return await dbs.execute(query)
+    
+    @staticmethod
+    async def comment_on_post(comment_data: CommentIn):
+        try:
+            query = db_comments_table.insert().values(comment_data.model_dump())
+            id = await dbs.execute(query)
+            return await PostHelper.get_comments(id)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @staticmethod
+    async def get_comments(comment_id: int = None, post_id: int = None):
+        query = db_comments_table.select()
+        if comment_id:
+            query = query.where(db_comments_table.c.comment_id_table == comment_id)
+        elif post_id:
+            query = query.where(db_comments_table.c.post_comment_id == post_id)
+        comments = await dbs.fetch_all(query)
+        return comments
+    
+    @staticmethod
+    async def delete_comment(comment_id: int, user_id: int):
+        query_comment = db_comments_table.select().where(db_comments_table.c.comment_id_table == comment_id)
+        comment = await dbs.fetch_one(query_comment)
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+        if comment['user_comment_id'] != user_id:
+            raise HTTPException(status_code=401, detail="Unauthorized access")
+        query = db_comments_table.delete().where(db_comments_table.c.comment_id_table == comment_id)
+        return await dbs.execute(query)
+    
+    @staticmethod
+    async def like_post(post_id: int, user_id: int):
+        query = db_likes_table.insert().values(post_like_id=post_id, user_like_id=user_id)
+        await dbs.execute(query)
+        return await PostHelper.get_likes(post_id)
+    
+    @staticmethod   
+    async def get_likes(like_id: int = None, post_id: int = None):
+        query = db_likes_table.select()
+        if like_id:
+            query = query.where(db_likes_table.c.likes_id_table == like_id)
+        elif post_id:
+            query = query.where(db_likes_table.c.post_like_id == post_id)
+        likes = await dbs.fetch_all(query)
+        return likes
+    
+    @staticmethod
+    async def unlike_post(like_id: int, user_id: int):
+        query_like = db_likes_table.select().where(db_likes_table.c.likes_id_table == like_id)
+        like = await dbs.fetch_one(query_like)
+        if not like:
+            raise HTTPException(status_code=404, detail="Like not found")
+        if like['user_like_id'] != user_id:
+            raise HTTPException(status_code=401, detail="Unauthorized access")
+        query = db_likes_table.delete().where(db_likes_table.c.likes_id_table == like_id)
+        return await dbs.execute(query)
+
