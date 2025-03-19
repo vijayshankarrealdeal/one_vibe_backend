@@ -11,7 +11,7 @@ POSTGRES_HOST = os.environ.get("hostname", "localhost")
 POSTGRES_PORT = os.environ.get("port", "5432")
 REDIS_URL = os.environ.get("redis_url", "5432")
 
-PRODUCTION_ENV = False
+PRODUCTION_ENV = True
 if PRODUCTION_ENV:
     DATABASE_URL = (
         f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
